@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Job represents an ingestion job in Supabase
 type Job struct {
-	ID             int64     `json:"id,omitempty"`
-	SourceID       int64     `json:"source_id"`
+	ID             uuid.UUID `json:"id,omitempty"`
+	SourceID       uuid.UUID `json:"source_id"`
 	Status         string    `json:"status"`
 	JobType        string    `json:"job_type"`
 	ResourceURL    string    `json:"resource_url"`
@@ -24,20 +26,20 @@ type Job struct {
 
 // Document represents a document in Supabase
 type Document struct {
-	ID        int64                  `json:"id,omitempty"`
-	SourceID  int64                  `json:"source_id"`
-	URL       string                 `json:"url"`
-	Content   string                 `json:"content"`
+	ID        uuid.UUID      `json:"id,omitempty"`
+	SourceID  uuid.UUID      `json:"source_id"`
+	URL       string         `json:"url"`
+	Content   string         `json:"content"`
 	Metadata  map[string]any `json:"metadata"`
-	Hash      string                 `json:"hash"`
-	CreatedAt time.Time              `json:"created_at,omitempty"`
-	UpdatedAt time.Time              `json:"updated_at,omitempty"`
+	Hash      string         `json:"hash"`
+	CreatedAt time.Time      `json:"created_at,omitempty"`
+	UpdatedAt time.Time      `json:"updated_at,omitempty"`
 }
 
 // Embedding represents an embedding in Supabase
 type Embedding struct {
-	ID         int64     `json:"id,omitempty"`
-	DocumentID int64     `json:"document_id"`
+	ID         uuid.UUID `json:"id,omitempty"`
+	DocumentID uuid.UUID `json:"document_id"`
 	Vector     []float32 `json:"vector"`
 	Chunk      string    `json:"chunk"`
 	CreatedAt  time.Time `json:"created_at,omitempty"`
@@ -87,7 +89,7 @@ func (c *Client) CreateJob(ctx context.Context, job *Job) error {
 
 // UpdateJob updates an existing job
 func (c *Client) UpdateJob(ctx context.Context, job *Job) error {
-	url := fmt.Sprintf("%s/rest/v1/ingestion_jobs?id=eq.%d", c.url, job.ID)
+	url := fmt.Sprintf("%s/rest/v1/ingestion_jobs?id=eq.%s", c.url, job.ID.String())
 
 	payload, err := json.Marshal(map[string]any{
 		"status":          job.Status,
@@ -132,8 +134,8 @@ func (c *Client) UpdateJob(ctx context.Context, job *Job) error {
 }
 
 // GetJob retrieves a job by ID
-func (c *Client) GetJob(ctx context.Context, id int64) (*Job, error) {
-	url := fmt.Sprintf("%s/rest/v1/ingestion_jobs?id=eq.%d", c.url, id)
+func (c *Client) GetJob(ctx context.Context, id uuid.UUID) (*Job, error) {
+	url := fmt.Sprintf("%s/rest/v1/ingestion_jobs?id=eq.%s", c.url, id.String())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -167,17 +169,17 @@ func (c *Client) GetJob(ctx context.Context, id int64) (*Job, error) {
 }
 
 // UpsertDocument creates or updates a document
-func (c *Client) UpsertDocument(ctx context.Context, doc *Document) (int64, error) {
+func (c *Client) UpsertDocument(ctx context.Context, doc *Document) (uuid.UUID, error) {
 	url := fmt.Sprintf("%s/rest/v1/documents", c.url)
 
 	payload, err := json.Marshal(doc)
 	if err != nil {
-		return 0, fmt.Errorf("failed to marshal document: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to marshal document: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	if err != nil {
-		return 0, fmt.Errorf("failed to create request: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("apikey", c.apiKey)
@@ -187,21 +189,21 @@ func (c *Client) UpsertDocument(ctx context.Context, doc *Document) (int64, erro
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("failed to upsert document: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to upsert document: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("upsert document failed: status %d", resp.StatusCode)
+		return uuid.Nil, fmt.Errorf("upsert document failed: status %d", resp.StatusCode)
 	}
 
 	var results []Document
 	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
-		return 0, fmt.Errorf("failed to decode response: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if len(results) == 0 {
-		return 0, fmt.Errorf("no document returned")
+		return uuid.Nil, fmt.Errorf("no document returned")
 	}
 
 	return results[0].ID, nil

@@ -41,7 +41,7 @@ func (s *EmbeddingService) GenerateEmbedding(ctx context.Context, text string) (
 
 	req := openai.EmbeddingRequest{
 		Input: []string{text},
-		Model: openai.EmbeddingModel(model),
+		Model: model,
 	}
 
 	resp, err := s.provider.client.CreateEmbeddings(ctx, req)
