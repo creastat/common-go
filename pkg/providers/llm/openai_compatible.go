@@ -226,6 +226,9 @@ func (p *OpenAICompatibleProvider) Initialize(ctx context.Context, config models
 	clientConfig := openai.DefaultConfig(config.APIKey)
 	if config.BaseURL != "" {
 		clientConfig.BaseURL = config.BaseURL
+	} else if p.name == "openrouter" {
+		// Use default OpenRouter base URL if not provided
+		clientConfig.BaseURL = "https://openrouter.ai/api/v1"
 	}
 
 	// Add custom headers for Yandex (folder_id)
@@ -244,8 +247,8 @@ func (p *OpenAICompatibleProvider) Initialize(ctx context.Context, config models
 
 	p.client = openai.NewClientWithConfig(clientConfig)
 
-	// Validate by listing models (skip for Yandex as it uses a different API structure)
-	if p.name != "yandex" {
+	// Validate by listing models (skip for Yandex and OpenRouter as they use different API structures)
+	if p.name != "yandex" && p.name != "openrouter" {
 		if err := p.validateAPIKey(ctx); err != nil {
 			return fmt.Errorf("failed to validate %s API key: %w", p.name, err)
 		}

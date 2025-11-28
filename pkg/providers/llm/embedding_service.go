@@ -25,23 +25,34 @@ func (s *EmbeddingService) GenerateEmbedding(ctx context.Context, text string) (
 		return nil, fmt.Errorf("provider not initialized")
 	}
 
-	// Use default embedding model
-	model := "text-embedding-3-small"
-	if s.provider.config.Model != "" {
-		model = s.provider.config.Model
-	}
+	// Get model from provider config
+	model := s.provider.config.Model
 
-	// For Yandex, prepend the folder_id to the model name
+	// For Yandex, allow empty model and use default
 	if s.provider.name == "yandex" {
+		if model == "" {
+			model = "text-search-query/latest"
+		}
+
 		if folderID, ok := s.provider.config.Options["folder_id"].(string); ok && folderID != "" {
 			// Model format: emb://<folder_id>/<model_name>
 			model = fmt.Sprintf("emb://%s/%s", folderID, model)
+		}
+	} else {
+		// For other providers, model must be configured
+		if model == "" {
+			return nil, fmt.Errorf("no embedding model configured for provider %s", s.provider.name)
 		}
 	}
 
 	req := openai.EmbeddingRequest{
 		Input: []string{text},
-		Model: model,
+		Model: openai.EmbeddingModel(model),
+	}
+
+	// For Yandex, set encoding format to float
+	if s.provider.name == "yandex" {
+		req.EncodingFormat = openai.EmbeddingEncodingFormatFloat
 	}
 
 	resp, err := s.provider.client.CreateEmbeddings(ctx, req)
