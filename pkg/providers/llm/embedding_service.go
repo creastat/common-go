@@ -50,8 +50,23 @@ func (s *EmbeddingService) GenerateEmbedding(ctx context.Context, text string) (
 		Model: openai.EmbeddingModel(model),
 	}
 
-	// For Yandex, set encoding format to float
-	if s.provider.name == "yandex" {
+	// Check for dimensions in options
+	if dims, ok := s.provider.config.Options["dimensions"]; ok {
+		switch v := dims.(type) {
+		case int:
+			req.Dimensions = v
+		case float64:
+			req.Dimensions = int(v)
+		}
+	}
+
+	// Check for encoding_format in options
+	if format, ok := s.provider.config.Options["encoding_format"].(string); ok && format != "" {
+		req.EncodingFormat = openai.EmbeddingEncodingFormat(format)
+	}
+
+	// For Yandex, force encoding format to float if not specified
+	if s.provider.name == "yandex" && req.EncodingFormat == "" {
 		req.EncodingFormat = openai.EmbeddingEncodingFormatFloat
 	}
 
